@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1d4838">
+<title>隐患排查治理</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --bg-soft: #f3f2ec;
+    --surface: #ffffff;
+    --ink: #0f1511;
+    --ink-2: #3a433d;
+    --ink-3: #707a72;
+    --ink-4: #a8b0a8;
+    --line: #ebeae3;
+    --line-2: #dcdbd2;
+    --accent: #1d4838;
+    --accent-soft: #e8efe9;
+    --accent-ink: #0d2a1e;
+    --lvl-a: #c53030;  --lvl-a-bg: #fef2f2;
+    --lvl-b: #c2410c;  --lvl-b-bg: #fff5eb;
+    --lvl-c: #a16207;  --lvl-c-bg: #fefae3;
+    --lvl-d: #1e5a8d;  --lvl-d-bg: #ebf3fa;
+    --st-pending: #c53030;
+    --st-progress: #c2410c;
+    --st-done: #1d4838;
+    --shadow-sm: 0 1px 2px rgba(15, 21, 17, 0.04);
+    --shadow: 0 2px 8px rgba(15, 21, 17, 0.06), 0 1px 2px rgba(15, 21, 17, 0.04);
+    --radius-sm: 10px;
+    --radius: 14px;
+    --radius-lg: 20px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    overscroll-behavior-y: none;
+  }
+
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--bg);
+    position: relative;
+  }
+
+  @media (min-width: 520px) {
+    body { background: #e8e7e0; padding: 24px 0; padding-bottom: 24px; }
+    .app {
+      min-height: calc(100vh - 48px);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(15, 21, 17, 0.15);
+      padding-bottom: 80px;
+    }
+  }
+
+  .header {
+    padding: 20px 20px 16px;
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(250,250,247,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .header-row { display: flex; justify-content: space-between; align-items: flex-end; }
+  .greeting-small { font-size: 12px; color: var(--ink-3); margin-bottom: 2px; }
+  .greeting { font-size: 22px; font-weight: 600; letter-spacing: -0.4px; }
+  .date-badge {
+    background: var(--surface); padding: 8px 12px;
+    border-radius: var(--radius-sm); font-size: 11px;
+    color: var(--ink-2); box-shadow: var(--shadow-sm);
+    font-variant-numeric: tabular-nums;
+  }
+
+  main { padding: 0 20px; }
+  .view { display: none; animation: fadeIn 0.3s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #1d4838 0%, #0d2a1e 100%);
+    border-radius: var(--radius-lg);
+    padding: 24px 22px;
+    color: #fff;
+    margin-bottom: 16px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute;
+    top: -40px; right: -40px;
+    width: 160px; height: 160px;
+    background: radial-gradient(circle, rgba(255,255,255,0.08), transparent 70%);
+    border-radius: 50%;
+  }
+  .hero-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.65; margin-bottom: 10px; }
+  .hero-big {
+    font-size: 48px; font-weight: 700; letter-spacing: -1.5px;
+    line-height: 1; font-variant-numeric: tabular-nums; margin-bottom: 6px;
+  }
+  .hero-sub { font-size: 13px; opacity: 0.75; }
+  .hero-row {
+    display: flex; gap: 20px;
+    margin-top: 20px; padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+  }
+  .hero-stat { flex: 1; }
+  .hero-stat-num { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .hero-stat-label { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+
+  /* 存储指示器 */
+  .storage-indicator {
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+  .storage-indicator .bar {
+    flex: 1; height: 4px;
+    background: var(--bg-soft);
+    border-radius: 2px; overflow: hidden;
+  }
+  .storage-indicator .bar-in {
+    height: 100%; background: var(--accent);
+    transition: width 0.4s;
+  }
+  .storage-indicator.warn .bar-in { background: var(--lvl-b); }
+  .storage-indicator.crit .bar-in { background: var(--lvl-a); }
+  .storage-indicator .label { color: var(--ink-3); white-space: nowrap; }
+  .storage-indicator .num { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+  .section-title {
+    font-size: 11px; color: var(--ink-3);
+    letter-spacing: 1.5px; text-transform: uppercase;
+    margin-bottom: 10px; padding-left: 2px;
+  }
+
+  /* 快捷 */
+  .quick-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 16px;
+  }
+  .quick-item {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; box-shadow: var(--shadow-sm);
+    border: none; width: 100%; font-family: inherit; text-align: left;
+    transition: transform 0.15s;
+  }
+  .quick-item:active { transform: scale(0.97); }
+  .quick-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px; display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .quick-icon svg { width: 20px; height: 20px; }
+  .quick-text { flex: 1; min-width: 0; }
+  .quick-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .quick-sub { font-size: 11px; color: var(--ink-3); }
+
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 14px;
+  }
+  .card-head {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 14px;
+  }
+  .card-title { font-size: 14px; font-weight: 600; }
+  .card-meta { font-size: 11px; color: var(--ink-3); }
+
+  .bar-list { display: flex; flex-direction: column; gap: 12px; }
+  .bar-header {
+    display: flex; justify-content: space-between;
+    align-items: baseline; font-size: 12px; margin-bottom: 5px;
+  }
+  .bar-name { color: var(--ink-2); }
+  .bar-count { color: var(--ink-3); font-variant-numeric: tabular-nums; font-weight: 500; }
+  .bar-track { height: 6px; background: var(--bg-soft); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+  .bar-fill.lvl-a { background: linear-gradient(90deg, #c53030, #e53e3e); }
+  .bar-fill.lvl-b { background: linear-gradient(90deg, #c2410c, #ea580c); }
+  .bar-fill.lvl-c { background: linear-gradient(90deg, #a16207, #ca8a04); }
+  .bar-fill.lvl-d { background: linear-gradient(90deg, #1e5a8d, #2b6cb0); }
+  .bar-fill.accent { background: linear-gradient(90deg, #1d4838, #2f6b4d); }
+
+  /* 表单 */
+  .form-intro { font-size: 13px; color: var(--ink-3); margin-bottom: 20px; padding: 0 2px; }
+  .form-group {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 6px 16px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+  }
+  .form-group-title {
+    font-size: 11px; color: var(--ink-3);
+    letter-spacing: 1px; text-transform: uppercase;
+    padding: 12px 0 4px;
+  }
+  .field { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .field:last-child { border-bottom: none; }
+  .field label {
+    display: block; font-size: 12px;
+    color: var(--ink-3); margin-bottom: 6px; font-weight: 500;
+  }
+  .field label .req { color: var(--lvl-a); margin-left: 2px; }
+  .field input[type="text"],
+  .field input[type="date"],
+  .field textarea {
+    width: 100%; border: none; background: transparent;
+    font-family: inherit; font-size: 15px; color: var(--ink);
+    padding: 4px 0; resize: none;
+  }
+  .field input:focus, .field textarea:focus { outline: none; }
+  .field input::placeholder, .field textarea::placeholder { color: var(--ink-4); }
+  .field textarea { min-height: 60px; }
+
+  /* 分级 */
+  .level-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 4px; }
+  .level-pick label {
+    text-align: center; padding: 12px 6px;
+    border-radius: 12px; cursor: pointer;
+    background: var(--bg-soft); border: 2px solid transparent;
+    margin: 0; transition: all 0.2s;
+  }
+  .level-pick input { display: none; }
+  .level-code { font-size: 20px; font-weight: 700; display: block; margin-bottom: 2px; }
+  .level-name { font-size: 10px; color: var(--ink-3); }
+  .level-pick label.lv-a .level-code { color: var(--lvl-a); }
+  .level-pick label.lv-b .level-code { color: var(--lvl-b); }
+  .level-pick label.lv-c .level-code { color: var(--lvl-c); }
+  .level-pick label.lv-d .level-code { color: var(--lvl-d); }
+  .level-pick label.lv-a.on { background: var(--lvl-a-bg); border-color: var(--lvl-a); }
+  .level-pick label.lv-b.on { background: var(--lvl-b-bg); border-color: var(--lvl-b); }
+  .level-pick label.lv-c.on { background: var(--lvl-c-bg); border-color: var(--lvl-c); }
+  .level-pick label.lv-d.on { background: var(--lvl-d-bg); border-color: var(--lvl-d); }
+
+  /* 分类 */
+  .cat-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+  .cat-pick label {
+    padding: 12px 14px; border-radius: 12px; cursor: pointer;
+    background: var(--bg-soft); font-size: 13px; color: var(--ink-2);
+    border: 2px solid transparent; text-align: center; margin: 0;
+    transition: all 0.2s;
+  }
+  .cat-pick input { display: none; }
+  .cat-pick label.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
+
+  /* 照片上传 */
+  .photo-field {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .photo-slot {
+    width: 80px; height: 80px;
+    border-radius: 12px;
+    background: var(--bg-soft);
+    display: grid; place-items: center;
+    color: var(--ink-3);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    border: 1.5px dashed var(--line-2);
+    transition: all 0.2s;
+  }
+  .photo-slot:hover { border-color: var(--accent); color: var(--accent); }
+  .photo-slot svg { width: 22px; height: 22px; }
+  .photo-slot input[type="file"] { display: none; }
+  .photo-slot-text { font-size: 10px; margin-top: 2px; }
+
+  .photo-preview {
+    width: 80px; height: 80px;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    border: 1.5px solid var(--line);
+  }
+  .photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-remove {
+    position: absolute; top: 4px; right: 4px;
+    width: 20px; height: 20px;
+    background: rgba(15, 21, 17, 0.7);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    cursor: pointer; border: none;
+    color: white;
+  }
+  .photo-remove svg { width: 12px; height: 12px; }
+
+  .photo-hint {
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+
+  .submit-btn {
+    width: 100%; padding: 15px;
+    background: var(--accent); color: white;
+    border: none; border-radius: var(--radius);
+    font-family: inherit; font-size: 15px; font-weight: 600;
+    cursor: pointer; margin-top: 8px;
+    box-shadow: 0 4px 12px rgba(29, 72, 56, 0.25);
+    transition: transform 0.15s;
+    letter-spacing: 0.3px;
+  }
+  .submit-btn:active { transform: scale(0.98); }
+  .submit-btn:disabled {
+    background: var(--bg-soft); color: var(--ink-4);
+    box-shadow: none; cursor: not-allowed;
+  }
+
+  /* 台账 */
+  .filter-bar {
+    display: flex; gap: 8px;
+    margin-bottom: 14px; overflow-x: auto;
+    padding: 2px; scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    padding: 7px 14px; background: var(--surface); border: none;
+    border-radius: 100px; font-size: 12px; color: var(--ink-2);
+    cursor: pointer; white-space: nowrap; box-shadow: var(--shadow-sm);
+    font-family: inherit; transition: all 0.2s;
+  }
+  .filter-chip.active { background: var(--ink); color: white; }
+
+  .search-box {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 11px 16px; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: var(--shadow-sm);
+  }
+  .search-box input { flex: 1; border: none; background: transparent; font-family: inherit; font-size: 14px; outline: none; }
+  .search-box svg { width: 16px; height: 16px; color: var(--ink-3); flex-shrink: 0; }
+
+  .hazard-card {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 10px;
+    box-shadow: var(--shadow-sm); cursor: pointer;
+    position: relative; overflow: hidden;
+    transition: transform 0.15s;
+  }
+  .hazard-card:active { transform: scale(0.99); }
+  .hazard-card::before {
+    content: ''; position: absolute;
+    left: 0; top: 0; bottom: 0; width: 3px;
+  }
+  .hazard-card.lv-a::before { background: var(--lvl-a); }
+  .hazard-card.lv-b::before { background: var(--lvl-b); }
+  .hazard-card.lv-c::before { background: var(--lvl-c); }
+  .hazard-card.lv-d::before { background: var(--lvl-d); }
+
+  .hazard-top {
+    display: flex; gap: 12px;
+    margin-bottom: 8px;
+    align-items: flex-start;
+  }
+  .hazard-thumb {
+    width: 52px; height: 52px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--line);
+  }
+  .hazard-content { flex: 1; min-width: 0; }
+  .hazard-title-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .hazard-title {
+    font-size: 14px; font-weight: 600;
+    color: var(--ink); line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex: 1;
+  }
+  .hazard-id {
+    font-size: 10px; color: var(--ink-4);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  .hazard-tags { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 2px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 500;
+  }
+  .chip-a { background: var(--lvl-a-bg); color: var(--lvl-a); }
+  .chip-b { background: var(--lvl-b-bg); color: var(--lvl-b); }
+  .chip-c { background: var(--lvl-c-bg); color: var(--lvl-c); }
+  .chip-d { background: var(--lvl-d-bg); color: var(--lvl-d); }
+  .chip-cat { background: var(--bg-soft); color: var(--ink-2); }
+  .chip-photo {
+    background: var(--accent-soft); color: var(--accent);
+    display: inline-flex; align-items: center; gap: 3px;
+  }
+  .chip-photo svg { width: 10px; height: 10px; }
+
+  .hazard-bot {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--ink-3);
+    padding-top: 10px; margin-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .hazard-meta { display: flex; align-items: center; gap: 6px; }
+  .hazard-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
+  .status-pill .s-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-pending .s-dot { background: var(--st-pending); }
+  .status-progress .s-dot { background: var(--st-progress); animation: pulse 2s infinite; }
+  .status-done .s-dot { background: var(--st-done); }
+  .status-pending { color: var(--st-pending); }
+  .status-progress { color: var(--st-progress); }
+  .status-done { color: var(--st-done); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .empty-state { padding: 60px 20px; text-align: center; }
+  .empty-icon {
+    width: 56px; height: 56px; margin: 0 auto 14px;
+    background: var(--bg-soft); border-radius: 16px;
+    display: grid; place-items: center; color: var(--ink-4);
+  }
+  .empty-title { font-size: 15px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
+  .empty-desc { font-size: 12px; color: var(--ink-3); margin-bottom: 20px; }
+  .empty-action {
+    padding: 9px 18px; background: var(--accent); color: white;
+    border: none; border-radius: 10px; font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+
+  .ledger-actions {
+    display: flex; gap: 8px;
+    margin-top: 12px; margin-bottom: 12px;
+  }
+  .action-btn {
+    flex: 1; padding: 11px;
+    background: var(--surface); border: none;
+    border-radius: 12px; font-family: inherit; font-size: 13px;
+    color: var(--ink-2); cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .action-btn svg { width: 14px; height: 14px; }
+  .action-btn.primary { background: var(--ink); color: white; }
+  .action-btn.danger { color: var(--lvl-a); }
+
+  /* Tabbar */
+  .tabbar {
+    position: fixed; bottom: 0; left: 50%;
+    transform: translateX(-50%); width: 100%; max-width: 480px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 1px solid var(--line);
+    display: flex; padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+    z-index: 50;
+  }
+  @media (min-width: 520px) {
+    .tabbar { bottom: 24px; border-radius: 0 0 28px 28px; padding: 10px 0; }
+  }
+  .tab {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+    background: none; border: none; padding: 6px 0;
+    cursor: pointer; color: var(--ink-4);
+    font-family: inherit; font-size: 10px;
+    transition: color 0.15s;
+  }
+  .tab svg { width: 22px; height: 22px; stroke-width: 1.8; }
+  .tab.active { color: var(--accent); }
+  .tab.active .tab-label { font-weight: 600; }
+
+  /* Sheet */
+  .sheet-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15,21,17,0.5);
+    display: none; z-index: 100;
+    animation: overlayIn 0.25s ease;
+  }
+  .sheet-overlay.active { display: block; }
+  @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .sheet {
+    position: fixed; bottom: 0; left: 50%;
+    transform: translateX(-50%); width: 100%; max-width: 480px;
+    background: var(--surface);
+    border-radius: 24px 24px 0 0;
+    max-height: 88vh; overflow-y: auto;
+    padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
+    animation: sheetIn 0.3s cubic-bezier(0.25,0.1,0.25,1);
+  }
+  @keyframes sheetIn { from { transform: translate(-50%,100%); } to { transform: translate(-50%,0); } }
+  .sheet-handle {
+    width: 36px; height: 4px; background: var(--line-2);
+    border-radius: 2px; margin: 8px auto 16px;
+  }
+  .sheet-id { font-size: 11px; color: var(--ink-3); margin-bottom: 6px; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
+  .sheet-title { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.35; }
+  .sheet-tags { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+  .detail-list {
+    background: var(--bg-soft); border-radius: 14px;
+    padding: 4px 16px; margin-bottom: 14px;
+  }
+  .detail-item { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .detail-item:last-child { border-bottom: none; }
+  .detail-k { font-size: 11px; color: var(--ink-3); letter-spacing: 0.5px; margin-bottom: 3px; }
+  .detail-v { font-size: 14px; color: var(--ink); line-height: 1.5; }
+
+  /* 照片对比区 */
+  .photo-compare {
+    margin-bottom: 14px;
+  }
+  .photo-compare-title {
+    font-size: 11px; color: var(--ink-3);
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 10px; padding-left: 2px;
+  }
+  .photo-compare-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .photo-compare-col {
+    background: var(--bg-soft);
+    border-radius: 12px;
+    padding: 10px;
+  }
+  .photo-compare-label {
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-bottom: 8px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .photo-compare-label .dot-l {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .dot-before { background: var(--lvl-a); }
+  .dot-after { background: var(--st-done); }
+  .photo-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .photo-grid img {
+    width: 100%; aspect-ratio: 1; object-fit: cover;
+    border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line);
+  }
+  .photo-add-btn {
+    width: 100%; aspect-ratio: 1;
+    border-radius: 8px; border: 1.5px dashed var(--line-2);
+    background: var(--surface);
+    display: grid; place-items: center;
+    color: var(--ink-3); cursor: pointer;
+    font-size: 11px;
+  }
+  .photo-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .photo-add-btn svg { width: 18px; height: 18px; margin-bottom: 2px; }
+  .photo-empty {
+    font-size: 12px; color: var(--ink-4);
+    text-align: center;
+    padding: 16px 0;
+  }
+
+  .sheet-actions {
+    display: flex; gap: 10px; margin-top: 8px;
+  }
+  .sheet-actions .submit-btn { flex: 1; margin: 0; }
+
+  /* 图片预览 lightbox */
+  .lightbox {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    display: none;
+    place-items: center;
+    z-index: 300;
+    padding: 20px;
+  }
+  .lightbox.active { display: grid; }
+  .lightbox img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain;
+  }
+  .lightbox-close {
+    position: absolute; top: calc(20px + env(safe-area-inset-top)); right: 20px;
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50%; border: none;
+    display: grid; place-items: center;
+    color: white; cursor: pointer;
+    backdrop-filter: blur(10px);
+  }
+
+  /* 导出选项弹窗 */
+  .dialog-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15,21,17,0.5);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200; padding: 20px;
+  }
+  .dialog-overlay.active { display: flex; }
+  .dialog {
+    background: var(--surface);
+    border-radius: 18px;
+    max-width: 400px; width: 100%;
+    padding: 22px;
+    animation: dialogIn 0.2s ease;
+  }
+  @keyframes dialogIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+  .dialog-title {
+    font-size: 16px; font-weight: 600; margin-bottom: 6px;
+  }
+  .dialog-desc {
+    font-size: 13px; color: var(--ink-3); margin-bottom: 16px; line-height: 1.5;
+  }
+  .export-option {
+    display: block; width: 100%;
+    padding: 14px 16px; margin-bottom: 10px;
+    background: var(--bg-soft); border: 2px solid transparent;
+    border-radius: 12px; cursor: pointer;
+    text-align: left; font-family: inherit;
+    transition: all 0.2s;
+  }
+  .export-option:hover { border-color: var(--accent); }
+  .export-option-title {
+    font-size: 14px; font-weight: 600; margin-bottom: 3px; color: var(--ink);
+  }
+  .export-option-desc {
+    font-size: 12px; color: var(--ink-3); line-height: 1.45;
+  }
+  .dialog-cancel {
+    width: 100%; padding: 12px;
+    background: none; border: none;
+    color: var(--ink-3); font-family: inherit; font-size: 14px;
+    cursor: pointer; margin-top: 6px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: calc(20px + env(safe-area-inset-top));
+    left: 50%; transform: translate(-50%, -100px);
+    background: rgba(15,21,17,0.94); color: white;
+    padding: 12px 20px; border-radius: 100px;
+    font-size: 13px; font-weight: 500;
+    z-index: 400; opacity: 0;
+    transition: transform 0.3s, opacity 0.3s;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+  /* Loading */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15,21,17,0.6);
+    display: none; align-items: center; justify-content: center;
+    z-index: 500; backdrop-filter: blur(4px);
+  }
+  .loading-overlay.active { display: flex; }
+  .loading-box {
+    background: var(--surface);
+    border-radius: 14px; padding: 24px 32px;
+    text-align: center; font-size: 13px; color: var(--ink-2);
+  }
+  .loading-spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    margin: 0 auto 12px;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  ::-webkit-scrollbar { width: 0; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="header">
+    <div class="header-row">
+      <div>
+        <div class="greeting-small" id="greeting-small">下午好</div>
+        <div class="greeting">隐患排查治理</div>
+      </div>
+      <div class="date-badge" id="date-badge">—</div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- 首页 -->
+    <section class="view active" id="view-home">
+      <div class="hero">
+        <div class="hero-label">当前在册</div>
+        <div class="hero-big" id="h-total">0</div>
+        <div class="hero-sub">累计登记隐患</div>
+        <div class="hero-row">
+          <div class="hero-stat"><div class="hero-stat-num" id="h-pending">0</div><div class="hero-stat-label">待整改</div></div>
+          <div class="hero-stat"><div class="hero-stat-num" id="h-progress">0</div><div class="hero-stat-label">整改中</div></div>
+          <div class="hero-stat"><div class="hero-stat-num" id="h-rate">—</div><div class="hero-stat-label">闭环率</div></div>
+        </div>
+      </div>
+
+      <div class="storage-indicator" id="storage-box">
+        <span class="label">存储</span>
+        <div class="bar"><div class="bar-in" id="storage-bar" style="width:0%"></div></div>
+        <span class="num" id="storage-num">0 / — MB</span>
+      </div>
+
+      <div class="section-title">快捷操作</div>
+      <div class="quick-grid">
+        <button class="quick-item" data-go="report">
+          <div class="quick-icon" style="background:var(--accent-soft);color:var(--accent)">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </div>
+          <div class="quick-text"><div class="quick-title">上报隐患</div><div class="quick-sub">登记新问题</div></div>
+        </button>
+        <button class="quick-item" data-go="ledger">
+          <div class="quick-icon" style="background:#fef3e2;color:#c2410c">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          </div>
+          <div class="quick-text"><div class="quick-title">查看台账</div><div class="quick-sub" id="q-ledger-count">—</div></div>
+        </button>
+        <button class="quick-item" id="btn-export-quick">
+          <div class="quick-icon" style="background:#e8f0f7;color:#1e5a8d">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          </div>
+          <div class="quick-text"><div class="quick-title">导出报表</div><div class="quick-sub">Excel / 打包</div></div>
+        </button>
+        <button class="quick-item" id="btn-demo-quick">
+          <div class="quick-icon" style="background:#fdf6e3;color:#a16207">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <div class="quick-text"><div class="quick-title">示例数据</div><div class="quick-sub">快速体验</div></div>
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">按分级分布</div><div class="card-meta" id="c-lvl-meta">—</div></div>
+        <div class="bar-list" id="chart-level"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">按分类分布</div><div class="card-meta" id="c-cat-meta">—</div></div>
+        <div class="bar-list" id="chart-category"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">按部门分布</div><div class="card-meta" id="c-dept-meta">—</div></div>
+        <div class="bar-list" id="chart-department"></div>
+      </div>
+    </section>
+
+    <!-- 上报 -->
+    <section class="view" id="view-report">
+      <div class="section-title" style="margin-top:4px">登记新隐患</div>
+      <p class="form-intro">以下标 <span style="color:var(--lvl-a)">*</span> 为必填项。照片会自动压缩，最多 2 张。</p>
+
+      <form id="hazard-form">
+        <div class="form-group">
+          <div class="form-group-title">基本信息</div>
+          <div class="field">
+            <label>隐患标题<span class="req">*</span></label>
+            <input type="text" name="title" required placeholder="简短描述隐患">
+          </div>
+          <div class="field">
+            <label>详细描述<span class="req">*</span></label>
+            <textarea name="desc" required placeholder="描述具体情况、可能后果……"></textarea>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-group-title">现场照片（可选，最多 2 张）</div>
+          <div class="field" style="border:none">
+            <div class="photo-field" id="photo-field">
+              <label class="photo-slot" id="photo-slot">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span class="photo-slot-text">拍照 / 选图</span>
+                <input type="file" accept="image/*" capture="environment" id="photo-input">
+              </label>
+            </div>
+            <div class="photo-hint">点相机图标拍照，或从相册选择。图片会自动压缩。</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-group-title">分类与分级</div>
+          <div class="field">
+            <label>隐患分类<span class="req">*</span></label>
+            <div class="cat-pick" id="cat-pick">
+              <label><input type="radio" name="category" value="人的不安全行为" required>人的不安全行为</label>
+              <label><input type="radio" name="category" value="物的不安全状态">物的不安全状态</label>
+              <label><input type="radio" name="category" value="管理缺陷">管理缺陷</label>
+              <label><input type="radio" name="category" value="环境因素">环境因素</label>
+            </div>
+          </div>
+          <div class="field">
+            <label>隐患分级<span class="req">*</span></label>
+            <div class="level-pick" id="level-pick">
+              <label class="lv-a"><input type="radio" name="level" value="A" required><span class="level-code">A</span><span class="level-name">公司级</span></label>
+              <label class="lv-b"><input type="radio" name="level" value="B"><span class="level-code">B</span><span class="level-name">部门级</span></label>
+              <label class="lv-c"><input type="radio" name="level" value="C"><span class="level-code">C</span><span class="level-name">班组级</span></label>
+              <label class="lv-d"><input type="radio" name="level" value="D"><span class="level-code">D</span><span class="level-name">岗位级</span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-group-title">发生地点与责任</div>
+          <div class="field">
+            <label>所在部门<span class="req">*</span></label>
+            <input type="text" name="department" required placeholder="例：生产一部">
+          </div>
+          <div class="field">
+            <label>具体位置</label>
+            <input type="text" name="location" placeholder="例：1#厂房 2 楼配电室">
+          </div>
+          <div class="field">
+            <label>排查人<span class="req">*</span></label>
+            <input type="text" name="reporter" required placeholder="你的姓名">
+          </div>
+          <div class="field">
+            <label>发现日期<span class="req">*</span></label>
+            <input type="date" name="found_date" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-group-title">整改要求</div>
+          <div class="field">
+            <label>整改责任人</label>
+            <input type="text" name="owner" placeholder="姓名">
+          </div>
+          <div class="field">
+            <label>要求完成日期</label>
+            <input type="date" name="due_date">
+          </div>
+          <div class="field">
+            <label>整改措施建议</label>
+            <textarea name="measure" placeholder="建议采取的措施……"></textarea>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn">提交登记</button>
+      </form>
+    </section>
+
+    <!-- 台账 -->
+    <section class="view" id="view-ledger">
+      <div class="section-title" style="margin-top:4px">隐患台账</div>
+      <div class="search-box">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" id="f-search" placeholder="搜索标题、部门、排查人">
+      </div>
+      <div class="filter-bar" id="filter-bar">
+        <button class="filter-chip active" data-filter="all">全部</button>
+        <button class="filter-chip" data-filter="pending">待整改</button>
+        <button class="filter-chip" data-filter="progress">整改中</button>
+        <button class="filter-chip" data-filter="done">已闭环</button>
+        <button class="filter-chip" data-filter="A">A级</button>
+        <button class="filter-chip" data-filter="B">B级</button>
+        <button class="filter-chip" data-filter="C">C级</button>
+        <button class="filter-chip" data-filter="D">D级</button>
+      </div>
+      <div id="ledger-list"></div>
+      <div class="ledger-actions" id="ledger-actions" style="display:none">
+        <button class="action-btn primary" id="btn-export">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          导出报表
+        </button>
+        <button class="action-btn danger" id="btn-clear">清空</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Tabbar -->
+<nav class="tabbar">
+  <button class="tab active" data-tab="home">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    <span class="tab-label">首页</span>
+  </button>
+  <button class="tab" data-tab="report">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <span class="tab-label">上报</span>
+  </button>
+  <button class="tab" data-tab="ledger">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    <span class="tab-label">台账</span>
+  </button>
+</nav>
+
+<!-- 详情 sheet -->
+<div class="sheet-overlay" id="sheet-overlay">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-id" id="s-id">—</div>
+    <div class="sheet-title" id="s-title">—</div>
+    <div class="sheet-tags" id="s-tags"></div>
+
+    <div class="photo-compare" id="s-photos" style="margin-top:16px"></div>
+
+    <div class="detail-list" id="s-detail"></div>
+    <div class="sheet-actions">
+      <button class="submit-btn" id="s-advance">推进状态</button>
+      <button class="action-btn danger" id="s-delete" style="flex:0 0 auto;padding:14px 18px">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightbox-close">
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>
+  <img id="lightbox-img">
+</div>
+
+<!-- 导出选项 -->
+<div class="dialog-overlay" id="export-dialog">
+  <div class="dialog">
+    <div class="dialog-title">选择导出方式</div>
+    <div class="dialog-desc" id="export-dialog-desc">将导出 <span id="export-count">0</span> 条记录</div>
+    <button class="export-option" data-mode="embed">
+      <div class="export-option-title">嵌图 Excel（单文件）</div>
+      <div class="export-option-desc">照片直接插入单元格，一份文件就是完整档案。记录多或照片多时文件会变大。</div>
+    </button>
+    <button class="export-option" data-mode="zip">
+      <div class="export-option-title">Excel + 照片文件夹（压缩包）</div>
+      <div class="export-option-desc">Excel 记录文字，照片单独放在 photos 文件夹。文件小、打开快、便于归档。</div>
+    </button>
+    <button class="export-option" data-mode="excel-only">
+      <div class="export-option-title">仅 Excel（不含照片）</div>
+      <div class="export-option-desc">只导出文字记录，照片不打包。适合快速汇报或转发邮件。</div>
+    </button>
+    <button class="dialog-cancel" id="export-cancel">取消</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading-overlay" id="loading">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <div id="loading-text">处理中…</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ============ IndexedDB 封装 ============
+const DB_NAME = 'hazard_db_v1';
+const DB_VERSION = 1;
+let dbConn = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (dbConn) { resolve(dbConn); return; }
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => { dbConn = req.result; resolve(dbConn); };
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('records')) {
+        db.createObjectStore('records', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('photos')) {
+        db.createObjectStore('photos', { keyPath: 'key' });
+      }
+    };
+  });
+}
+
+async function dbAll(store) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function dbGet(store, key) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function dbPut(store, value) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(value);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function dbDelete(store, key) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function dbClear(store) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).clear();
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+
+// ============ 工具 ============
+function $(s) { return document.querySelector(s); }
+function $$(s) { return document.querySelectorAll(s); }
+
+function esc(s) {
+  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function showLoading(text) {
+  $('#loading-text').textContent = text || '处理中…';
+  $('#loading').classList.add('active');
+}
+function hideLoading() { $('#loading').classList.remove('active'); }
+
+// ============ 图片压缩 ============
+function compressImage(file, maxSize = 1200, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round(height * maxSize / width);
+            width = maxSize;
+          } else {
+            width = Math.round(width * maxSize / height);
+            height = maxSize;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// 把 dataURL 转成 Blob（用于 ZIP 导出）
+function dataUrlToBlob(dataUrl) {
+  const parts = dataUrl.split(',');
+  const byteStr = atob(parts[1]);
+  const mime = parts[0].match(/:(.*?);/)[1];
+  const ab = new ArrayBuffer(byteStr.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+  return new Blob([ab], { type: mime });
+}
+
+// ============ 全局状态 ============
+let records = [];
+let currentFilter = 'all';
+let currentDetailId = null;
+let pendingPhotos = []; // 上报表单里临时存的照片
+
+// ============ 问候 ============
+function updateHeader() {
+  const h = new Date().getHours();
+  const g = h < 6 ? '凌晨好' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
+  $('#greeting-small').textContent = g;
+  const d = new Date();
+  $('#date-badge').textContent = `${d.getMonth()+1}月${d.getDate()}日 · ${['日','一','二','三','四','五','六'][d.getDay()]}`;
+}
+
+// ============ Tab 切换 ============
+function switchTab(tab) {
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  $$('.view').forEach(v => v.classList.remove('active'));
+  $('#view-' + tab).classList.add('active');
+  if (tab === 'home') { renderDash(); updateStorageIndicator(); }
+  if (tab === 'ledger') renderLedger();
+  window.scrollTo({top: 0, behavior: 'instant'});
+}
+$$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+$$('[data-go]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.go)));
+
+// ============ 选项卡 ============
+function setupPicker(container) {
+  $$(container + ' label').forEach(lbl => {
+    lbl.addEventListener('click', () => {
+      $$(container + ' label').forEach(l => l.classList.remove('on'));
+      lbl.classList.add('on');
+    });
+  });
+}
+setupPicker('#level-pick');
+setupPicker('#cat-pick');
+
+// ============ 照片上传（上报表单） ============
+$('#photo-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (pendingPhotos.length >= 2) { toast('最多 2 张照片'); return; }
+  showLoading('压缩中…');
+  try {
+    const dataUrl = await compressImage(file);
+    pendingPhotos.push(dataUrl);
+    renderPendingPhotos();
+  } catch(err) {
+    toast('照片处理失败');
+  } finally {
+    hideLoading();
+  }
+});
+
+function renderPendingPhotos() {
+  const field = $('#photo-field');
+  const slots = field.querySelectorAll('.photo-preview');
+  slots.forEach(s => s.remove());
+  // 插入预览
+  const slotTemplate = $('#photo-slot');
+  pendingPhotos.forEach((url, i) => {
+    const div = document.createElement('div');
+    div.className = 'photo-preview';
+    div.innerHTML = `<img src="${url}"><button type="button" class="photo-remove" data-idx="${i}"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+    field.insertBefore(div, slotTemplate);
+  });
+  // 2 张后隐藏上传按钮
+  slotTemplate.style.display = pendingPhotos.length >= 2 ? 'none' : '';
+
+  $$('.photo-remove').forEach(b => {
+    b.addEventListener('click', e => {
+      e.preventDefault();
+      const idx = parseInt(b.dataset.idx);
+      pendingPhotos.splice(idx, 1);
+      renderPendingPhotos();
+    });
+  });
+}
+
+// ============ 提交表单 ============
+$('input[name="found_date"]').valueAsDate = new Date();
+
+$('#hazard-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  if (!fd.get('category') || !fd.get('level')) {
+    toast('请选择分类和分级'); return;
+  }
+  const id = genId();
+  const r = {
+    id,
+    title: fd.get('title').trim(),
+    desc: fd.get('desc').trim(),
+    category: fd.get('category'),
+    level: fd.get('level'),
+    department: fd.get('department').trim(),
+    location: (fd.get('location')||'').trim(),
+    reporter: fd.get('reporter').trim(),
+    found_date: fd.get('found_date'),
+    owner: (fd.get('owner')||'').trim(),
+    due_date: fd.get('due_date')||'',
+    measure: (fd.get('measure')||'').trim(),
+    status: '待整改',
+    before_count: pendingPhotos.length,
+    after_count: 0,
+    created_at: new Date().toISOString()
+  };
+  showLoading('保存中…');
+  try {
+    await dbPut('records', r);
+    // 保存照片
+    for (let i = 0; i < pendingPhotos.length; i++) {
+      await dbPut('photos', { key: `${id}_before_${i}`, data: pendingPhotos[i] });
+    }
+    records.unshift(r);
+    pendingPhotos = [];
+    e.target.reset();
+    $$('#level-pick label, #cat-pick label').forEach(l => l.classList.remove('on'));
+    $('input[name="found_date"]').valueAsDate = new Date();
+    renderPendingPhotos();
+    toast('登记成功 · ' + r.id);
+    setTimeout(() => switchTab('ledger'), 400);
+  } catch(err) {
+    toast('保存失败，存储可能已满');
+    console.error(err);
+  } finally {
+    hideLoading();
+  }
+});
+
+function genId() {
+  const d = new Date();
+  const ymd = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  const seq = String(records.filter(r => r.id.startsWith('HZ'+ymd)).length + 1).padStart(3,'0');
+  return 'HZ' + ymd + seq;
+}
+
+// ============ 台账渲染 ============
+function getFiltered() {
+  const q = $('#f-search').value.trim().toLowerCase();
+  return records.filter(r => {
+    if (currentFilter === 'pending' && r.status !== '待整改') return false;
+    if (currentFilter === 'progress' && r.status !== '整改中') return false;
+    if (currentFilter === 'done' && r.status !== '已闭环') return false;
+    if (['A','B','C','D'].includes(currentFilter) && r.level !== currentFilter) return false;
+    if (q && !(r.title + r.department + r.reporter).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+async function renderLedger() {
+  const list = getFiltered();
+  const cont = $('#ledger-list');
+  $('#ledger-actions').style.display = records.length > 0 ? 'flex' : 'none';
+
+  if (records.length === 0) {
+    cont.innerHTML = `<div class="empty-state">
+      <div class="empty-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
+      <div class="empty-title">台账是空的</div>
+      <div class="empty-desc">去"上报"登记一条，或载入示例数据</div>
+      <button class="empty-action" onclick="loadDemo()">载入示例数据</button>
+    </div>`;
+    return;
+  }
+  if (list.length === 0) {
+    cont.innerHTML = `<div class="empty-state"><div class="empty-title">没有匹配的记录</div><div class="empty-desc">换个筛选条件试试</div></div>`;
+    return;
+  }
+
+  const statusMap = {'待整改':'status-pending','整改中':'status-progress','已闭环':'status-done'};
+
+  cont.innerHTML = list.map(r => `
+    <div class="hazard-card lv-${r.level.toLowerCase()}" data-id="${r.id}">
+      <div class="hazard-top">
+        ${r.before_count > 0 ? `<img class="hazard-thumb" id="thumb-${r.id}" alt="">` : ''}
+        <div class="hazard-content">
+          <div class="hazard-title-row">
+            <div class="hazard-title">${esc(r.title)}</div>
+            <div class="hazard-id">${r.id}</div>
+          </div>
+          <div class="hazard-tags">
+            <span class="chip chip-${r.level.toLowerCase()}">${r.level} 级</span>
+            <span class="chip chip-cat">${esc(r.category)}</span>
+            ${r.before_count + (r.after_count||0) > 0 ? `<span class="chip chip-photo"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>${r.before_count + (r.after_count||0)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="hazard-bot">
+        <div class="hazard-meta">
+          <span>${esc(r.department)}</span>
+          <span class="dot"></span>
+          <span>${esc(r.reporter)}</span>
+          <span class="dot"></span>
+          <span>${r.found_date.slice(5)}</span>
+        </div>
+        <div class="status-pill ${statusMap[r.status]}"><span class="s-dot"></span>${r.status}</div>
+      </div>
+    </div>
+  `).join('');
+
+  $$('.hazard-card').forEach(c => c.addEventListener('click', () => openDetail(c.dataset.id)));
+
+  // 异步加载缩略图
+  for (const r of list) {
+    if (r.before_count > 0) {
+      const photo = await dbGet('photos', `${r.id}_before_0`);
+      if (photo) {
+        const thumb = $(`#thumb-${r.id}`);
+        if (thumb) thumb.src = photo.data;
+      }
+    }
+  }
+}
+
+$$('.filter-chip').forEach(c => {
+  c.addEventListener('click', () => {
+    $$('.filter-chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    currentFilter = c.dataset.filter;
+    renderLedger();
+  });
+});
+$('#f-search').addEventListener('input', renderLedger);
+
+// ============ 详情 sheet ============
+async function openDetail(id) {
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  currentDetailId = id;
+
+  $('#s-id').textContent = r.id + ' · ' + r.found_date;
+  $('#s-title').textContent = r.title;
+  $('#s-tags').innerHTML = `
+    <span class="chip chip-${r.level.toLowerCase()}">${r.level} 级 · ${({A:'公司级',B:'部门级',C:'班组级',D:'岗位级'}[r.level])}</span>
+    <span class="chip chip-cat">${esc(r.category)}</span>
+  `;
+
+  const statusMap = {'待整改':'status-pending','整改中':'status-progress','已闭环':'status-done'};
+  $('#s-detail').innerHTML = `
+    <div class="detail-item"><div class="detail-k">详细描述</div><div class="detail-v">${esc(r.desc)}</div></div>
+    <div class="detail-item"><div class="detail-k">所在部门</div><div class="detail-v">${esc(r.department)}${r.location?' · '+esc(r.location):''}</div></div>
+    <div class="detail-item"><div class="detail-k">排查人</div><div class="detail-v">${esc(r.reporter)}</div></div>
+    <div class="detail-item"><div class="detail-k">整改责任人</div><div class="detail-v">${esc(r.owner)||'—'}${r.due_date?' · 截止 '+r.due_date:''}</div></div>
+    <div class="detail-item"><div class="detail-k">整改措施</div><div class="detail-v">${esc(r.measure)||'—'}</div></div>
+    <div class="detail-item"><div class="detail-k">当前状态</div><div class="detail-v"><span class="status-pill ${statusMap[r.status]}"><span class="s-dot"></span>${r.status}</span></div></div>
+  `;
+
+  // 照片对比
+  await renderPhotoCompare(r);
+
+  const adv = $('#s-advance');
+  if (r.status === '已闭环') {
+    adv.textContent = '已闭环';
+    adv.disabled = true;
+  } else {
+    adv.textContent = r.status === '待整改' ? '开始整改' : '标记闭环';
+    adv.disabled = false;
+  }
+  $('#sheet-overlay').classList.add('active');
+}
+
+async function renderPhotoCompare(r) {
+  const c = $('#s-photos');
+  const beforePhotos = [];
+  for (let i = 0; i < r.before_count; i++) {
+    const p = await dbGet('photos', `${r.id}_before_${i}`);
+    if (p) beforePhotos.push(p.data);
+  }
+  const afterPhotos = [];
+  for (let i = 0; i < (r.after_count||0); i++) {
+    const p = await dbGet('photos', `${r.id}_after_${i}`);
+    if (p) afterPhotos.push(p.data);
+  }
+
+  c.innerHTML = `
+    <div class="photo-compare-title">照片记录</div>
+    <div class="photo-compare-row">
+      <div class="photo-compare-col">
+        <div class="photo-compare-label"><span class="dot-l dot-before"></span>发现时</div>
+        <div class="photo-grid">
+          ${beforePhotos.map((url, i) => `<img src="${url}" data-url="${url}" class="lightbox-trigger" alt="">`).join('')}
+          ${beforePhotos.length === 0 ? '<div class="photo-empty" style="grid-column:span 2">暂无照片</div>' : ''}
+          ${beforePhotos.length < 2 ? `<button class="photo-add-btn" data-target="before">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v16m8-8H4"/></svg>
+            补传
+          </button>` : ''}
+        </div>
+      </div>
+      <div class="photo-compare-col">
+        <div class="photo-compare-label"><span class="dot-l dot-after"></span>整改后</div>
+        <div class="photo-grid">
+          ${afterPhotos.map((url, i) => `<img src="${url}" data-url="${url}" class="lightbox-trigger" alt="">`).join('')}
+          ${afterPhotos.length === 0 ? '<div class="photo-empty" style="grid-column:span 2">暂无照片</div>' : ''}
+          ${afterPhotos.length < 2 && r.status !== '待整改' ? `<button class="photo-add-btn" data-target="after">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v16m8-8H4"/></svg>
+            上传
+          </button>` : ''}
+          ${afterPhotos.length < 2 && r.status === '待整改' ? `<div class="photo-empty" style="grid-column:span 2;font-size:10px">开始整改后可传</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // lightbox
+  c.querySelectorAll('.lightbox-trigger').forEach(img => {
+    img.addEventListener('click', e => {
+      e.stopPropagation();
+      $('#lightbox-img').src = img.dataset.url;
+      $('#lightbox').classList.add('active');
+    });
+  });
+
+  // 补传按钮
+  c.querySelectorAll('.photo-add-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      triggerPhotoAdd(btn.dataset.target);
+    });
+  });
+}
+
+function triggerPhotoAdd(target) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showLoading('压缩中…');
+    try {
+      const dataUrl = await compressImage(file);
+      const r = records.find(x => x.id === currentDetailId);
+      if (!r) return;
+      if (target === 'before') {
+        const idx = r.before_count || 0;
+        await dbPut('photos', { key: `${r.id}_before_${idx}`, data: dataUrl });
+        r.before_count = idx + 1;
+      } else {
+        const idx = r.after_count || 0;
+        await dbPut('photos', { key: `${r.id}_after_${idx}`, data: dataUrl });
+        r.after_count = idx + 1;
+      }
+      await dbPut('records', r);
+      await renderPhotoCompare(r);
+      renderLedger();
+      toast('照片已添加');
+    } catch(err) {
+      toast('上传失败');
+    } finally {
+      hideLoading();
+    }
+  };
+  input.click();
+}
+
+$('#lightbox-close').addEventListener('click', () => $('#lightbox').classList.remove('active'));
+$('#lightbox').addEventListener('click', e => {
+  if (e.target.id === 'lightbox') $('#lightbox').classList.remove('active');
+});
+
+$('#sheet-overlay').addEventListener('click', e => {
+  if (e.target.id === 'sheet-overlay') $('#sheet-overlay').classList.remove('active');
+});
+
+$('#s-advance').addEventListener('click', async () => {
+  const r = records.find(x => x.id === currentDetailId);
+  if (!r || r.status === '已闭环') return;
+  r.status = r.status === '待整改' ? '整改中' : '已闭环';
+  await dbPut('records', r);
+  await openDetail(currentDetailId);
+  renderLedger();
+  toast('已更新为 ' + r.status);
+});
+
+$('#s-delete').addEventListener('click', async () => {
+  if (!confirm('确认删除这条记录？照片会一并删除。')) return;
+  const r = records.find(x => x.id === currentDetailId);
+  if (!r) return;
+  await dbDelete('records', r.id);
+  for (let i = 0; i < (r.before_count||0); i++) await dbDelete('photos', `${r.id}_before_${i}`);
+  for (let i = 0; i < (r.after_count||0); i++) await dbDelete('photos', `${r.id}_after_${i}`);
+  records = records.filter(x => x.id !== r.id);
+  $('#sheet-overlay').classList.remove('active');
+  renderLedger();
+  updateStorageIndicator();
+  toast('已删除');
+});
+
+// ============ 看板 ============
+function renderDash() {
+  const total = records.length;
+  const pending = records.filter(r => r.status === '待整改').length;
+  const progress = records.filter(r => r.status === '整改中').length;
+  const done = records.filter(r => r.status === '已闭环').length;
+  $('#h-total').textContent = total;
+  $('#h-pending').textContent = pending;
+  $('#h-progress').textContent = progress;
+  $('#h-rate').textContent = total === 0 ? '—' : Math.round(done/total*100) + '%';
+  $('#q-ledger-count').textContent = total === 0 ? '暂无记录' : `${total} 条记录`;
+
+  renderBar('chart-level', ['A','B','C','D'], records, 'level', k => ({
+    name: k + ' 级 · ' + ({A:'公司级',B:'部门级',C:'班组级',D:'岗位级'}[k]),
+    cls: 'lvl-' + k.toLowerCase()
+  }));
+  $('#c-lvl-meta').textContent = total + ' 条';
+
+  renderBar('chart-category', ['人的不安全行为','物的不安全状态','管理缺陷','环境因素'], records, 'category', k => ({name:k, cls:'accent'}));
+  $('#c-cat-meta').textContent = total + ' 条';
+
+  const depts = [...new Set(records.map(r => r.department))].filter(Boolean);
+  if (depts.length === 0) {
+    $('#chart-department').innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--ink-4);font-size:12px">暂无数据</div>';
+  } else {
+    renderBar('chart-department', depts, records, 'department', k => ({name:k, cls:'accent'}));
+  }
+  $('#c-dept-meta').textContent = depts.length + ' 个部门';
+}
+
+function renderBar(id, keys, data, field, metaFn) {
+  const cont = $('#' + id);
+  if (keys.length === 0) { cont.innerHTML = '<div style="text-align:center;padding:16px 0;color:var(--ink-4);font-size:12px">暂无数据</div>'; return; }
+  const counts = keys.map(k => data.filter(r => r[field] === k).length);
+  const max = Math.max(...counts, 1);
+  cont.innerHTML = keys.map((k, i) => {
+    const m = metaFn(k);
+    const c = counts[i];
+    const pct = c === 0 ? 0 : (c / max * 100);
+    return `<div><div class="bar-header"><span class="bar-name">${esc(m.name)}</span><span class="bar-count">${c}</span></div><div class="bar-track"><div class="bar-fill ${m.cls}" style="width:${pct}%"></div></div></div>`;
+  }).join('');
+}
+
+// ============ 存储指示器 ============
+async function updateStorageIndicator() {
+  if (!navigator.storage || !navigator.storage.estimate) {
+    $('#storage-num').textContent = '—';
+    return;
+  }
+  try {
+    const est = await navigator.storage.estimate();
+    const usedMB = est.usage / 1024 / 1024;
+    const quotaMB = est.quota / 1024 / 1024;
+    const pct = est.usage / est.quota * 100;
+    $('#storage-num').textContent = `${usedMB.toFixed(1)} MB · ${records.length} 条`;
+    $('#storage-bar').style.width = Math.min(pct, 100) + '%';
+    const box = $('#storage-box');
+    box.classList.remove('warn','crit');
+    if (pct > 70) box.classList.add('warn');
+    if (pct > 90) box.classList.add('crit');
+  } catch(e) {
+    $('#storage-num').textContent = records.length + ' 条';
+  }
+}
+
+// ============ 导出 ============
+$('#btn-export').addEventListener('click', openExportDialog);
+$('#btn-export-quick').addEventListener('click', openExportDialog);
+$('#export-cancel').addEventListener('click', () => $('#export-dialog').classList.remove('active'));
+$('#export-dialog').addEventListener('click', e => {
+  if (e.target.id === 'export-dialog') $('#export-dialog').classList.remove('active');
+});
+
+function openExportDialog() {
+  if (records.length === 0) { toast('台账为空'); return; }
+  $('#export-count').textContent = records.length;
+  $('#export-dialog').classList.add('active');
+}
+
+$$('.export-option').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const mode = btn.dataset.mode;
+    $('#export-dialog').classList.remove('active');
+    if (mode === 'excel-only') await exportExcelOnly();
+    else if (mode === 'embed') await exportEmbed();
+    else if (mode === 'zip') await exportZip();
+  });
+});
+
+function baseRows() {
+  return records.map(r => [
+    r.id, r.title, r.category, r.level + ' 级',
+    r.department, r.location||'', r.reporter, r.found_date,
+    r.owner||'', r.due_date||'', r.measure||'',
+    r.status, r.desc,
+    r.before_count || 0, r.after_count || 0,
+    r.created_at ? r.created_at.slice(0,19).replace('T',' ') : ''
+  ]);
+}
+const HEADERS = ['隐患编号','隐患标题','隐患分类','隐患分级','所在部门','具体位置','排查人','发现日期','整改责任人','要求完成日期','整改措施','当前状态','详细描述','发现时照片数','整改后照片数','登记时间'];
+
+async function exportExcelOnly() {
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...baseRows()]);
+  ws['!cols'] = [{wch:16},{wch:36},{wch:16},{wch:10},{wch:16},{wch:20},{wch:10},{wch:12},{wch:10},{wch:12},{wch:30},{wch:10},{wch:40},{wch:10},{wch:10},{wch:20}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '隐患台账');
+  const fname = '隐患台账_' + new Date().toISOString().slice(0,10) + '.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('已导出 ' + records.length + ' 条');
+}
+
+async function exportZip() {
+  showLoading('打包中…');
+  try {
+    const zip = new JSZip();
+    // Excel
+    const rows = records.map(r => {
+      const beforeNames = [];
+      const afterNames = [];
+      for (let i = 0; i < (r.before_count||0); i++) beforeNames.push(`photos/${r.id}_发现_${i+1}.jpg`);
+      for (let i = 0; i < (r.after_count||0); i++) afterNames.push(`photos/${r.id}_整改后_${i+1}.jpg`);
+      return [
+        r.id, r.title, r.category, r.level + ' 级',
+        r.department, r.location||'', r.reporter, r.found_date,
+        r.owner||'', r.due_date||'', r.measure||'',
+        r.status, r.desc,
+        beforeNames.join(' ; ') || '—',
+        afterNames.join(' ; ') || '—',
+        r.created_at ? r.created_at.slice(0,19).replace('T',' ') : ''
+      ];
+    });
+    const headers = ['隐患编号','隐患标题','隐患分类','隐患分级','所在部门','具体位置','排查人','发现日期','整改责任人','要求完成日期','整改措施','当前状态','详细描述','发现时照片','整改后照片','登记时间'];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{wch:16},{wch:36},{wch:16},{wch:10},{wch:16},{wch:20},{wch:10},{wch:12},{wch:10},{wch:12},{wch:30},{wch:10},{wch:40},{wch:40},{wch:40},{wch:20}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '隐患台账');
+    const xlsxBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    zip.file('隐患台账.xlsx', xlsxBuf);
+
+    // 照片文件夹
+    const photoFolder = zip.folder('photos');
+    for (const r of records) {
+      for (let i = 0; i < (r.before_count||0); i++) {
+        const p = await dbGet('photos', `${r.id}_before_${i}`);
+        if (p) photoFolder.file(`${r.id}_发现_${i+1}.jpg`, dataUrlToBlob(p.data));
+      }
+      for (let i = 0; i < (r.after_count||0); i++) {
+        const p = await dbGet('photos', `${r.id}_after_${i}`);
+        if (p) photoFolder.file(`${r.id}_整改后_${i+1}.jpg`, dataUrlToBlob(p.data));
+      }
+    }
+
+    // 说明文档
+    zip.file('说明.txt', '这是隐患排查台账导出包。\n\n- 隐患台账.xlsx：所有隐患记录的文字信息\n- photos/ 文件夹：对应的现场照片，按「隐患编号_发现/整改后_序号」命名\n\nExcel 中「发现时照片」「整改后照片」列显示的是对应的照片文件路径。\n\n导出时间：' + new Date().toLocaleString('zh-CN'));
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '隐患台账_' + new Date().toISOString().slice(0,10) + '.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('已导出压缩包');
+  } catch(err) {
+    console.error(err);
+    toast('导出失败');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function exportEmbed() {
+  showLoading('嵌入照片中…');
+  try {
+    // xlsx-js-style 社区版对图片嵌入支持有限。
+    // 我们用一个稳健的折中：把照片以链接形式放进去，同时单独导出一份 ZIP。
+    // 真正的"嵌图 Excel"需要 xlsx-populate 或 ExcelJS，这里用 ExcelJS 动态加载。
+    if (!window.ExcelJS) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+    }
+    const ExcelJS = window.ExcelJS;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('隐患台账');
+
+    const cols = [
+      { header:'隐患编号', key:'id', width:16 },
+      { header:'隐患标题', key:'title', width:36 },
+      { header:'隐患分类', key:'category', width:16 },
+      { header:'隐患分级', key:'level', width:10 },
+      { header:'所在部门', key:'department', width:16 },
+      { header:'具体位置', key:'location', width:20 },
+      { header:'排查人', key:'reporter', width:10 },
+      { header:'发现日期', key:'found_date', width:12 },
+      { header:'整改责任人', key:'owner', width:10 },
+      { header:'要求完成日期', key:'due_date', width:12 },
+      { header:'整改措施', key:'measure', width:30 },
+      { header:'当前状态', key:'status', width:10 },
+      { header:'详细描述', key:'desc', width:40 },
+      { header:'发现时照片', key:'before', width:20 },
+      { header:'整改后照片', key:'after', width:20 },
+    ];
+    ws.columns = cols;
+    ws.getRow(1).font = { bold: true };
+    ws.getRow(1).height = 24;
+
+    // 设置默认行高（能容纳小缩略图）
+    const ROW_H = 80;
+    const PHOTO_W = 90;
+    const PHOTO_H = 75;
+
+    for (let i = 0; i < records.length; i++) {
+      const r = records[i];
+      const rowIdx = i + 2;
+      ws.addRow({
+        id: r.id, title: r.title, category: r.category, level: r.level + ' 级',
+        department: r.department, location: r.location||'', reporter: r.reporter,
+        found_date: r.found_date, owner: r.owner||'', due_date: r.due_date||'',
+        measure: r.measure||'', status: r.status, desc: r.desc,
+        before: '', after: ''
+      });
+      ws.getRow(rowIdx).height = ROW_H;
+      ws.getRow(rowIdx).alignment = { vertical: 'middle', wrapText: true };
+
+      // 嵌发现时照片（只嵌第一张作为代表，避免文件过大）
+      if (r.before_count > 0) {
+        const p = await dbGet('photos', `${r.id}_before_0`);
+        if (p) {
+          const imgId = wb.addImage({ base64: p.data, extension: 'jpeg' });
+          ws.addImage(imgId, {
+            tl: { col: 13, row: rowIdx - 1 },
+            ext: { width: PHOTO_W, height: PHOTO_H }
+          });
+          if (r.before_count > 1) {
+            ws.getCell(rowIdx, 14).value = `+${r.before_count - 1} 张`;
+            ws.getCell(rowIdx, 14).alignment = { vertical: 'bottom', horizontal: 'right' };
+          }
+        }
+      }
+      if ((r.after_count||0) > 0) {
+        const p = await dbGet('photos', `${r.id}_after_0`);
+        if (p) {
+          const imgId = wb.addImage({ base64: p.data, extension: 'jpeg' });
+          ws.addImage(imgId, {
+            tl: { col: 14, row: rowIdx - 1 },
+            ext: { width: PHOTO_W, height: PHOTO_H }
+          });
+          if (r.after_count > 1) {
+            ws.getCell(rowIdx, 15).value = `+${r.after_count - 1} 张`;
+            ws.getCell(rowIdx, 15).alignment = { vertical: 'bottom', horizontal: 'right' };
+          }
+        }
+      }
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '隐患台账_嵌图_' + new Date().toISOString().slice(0,10) + '.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('已导出嵌图 Excel');
+  } catch(err) {
+    console.error(err);
+    toast('导出失败：' + err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+// ============ 清空 ============
+$('#btn-clear').addEventListener('click', async () => {
+  if (!confirm(`确认清空全部 ${records.length} 条记录？照片也会一并删除，此操作无法撤销。`)) return;
+  await dbClear('records');
+  await dbClear('photos');
+  records = [];
+  renderLedger();
+  updateStorageIndicator();
+  toast('已清空');
+});
+
+// ============ 示例数据 ============
+async function loadDemo() {
+  if (records.length > 0 && !confirm('已有数据，示例会追加。继续？')) return;
+  const demo = [
+    {title:'配电室门锁损坏，存在非授权进入风险', desc:'2 号车间配电室入口门锁弹簧失效，门可随意推开，非电工人员有误入触电风险。', category:'物的不安全状态', level:'B', department:'动力车间', location:'2#厂房 1 楼配电室', reporter:'李明', found_date:'2026-04-18', owner:'王建国', due_date:'2026-04-25', measure:'更换门锁，增加刷卡进入系统', status:'整改中'},
+    {title:'员工未按规定佩戴防护眼镜', desc:'打磨工位 3 名员工作业时未佩戴防冲击眼镜，面部暴露在飞溅物风险中。', category:'人的不安全行为', level:'C', department:'生产一部', reporter:'张敏', found_date:'2026-04-20', owner:'班组长·刘师傅', due_date:'2026-04-22', measure:'当场纠正，班前会再培训，加强抽检', status:'已闭环'},
+    {title:'危化品仓库 MSDS 清单未更新', desc:'仓库现有 12 种化学品中，3 种新入库品类 MSDS 未上墙，管理台账滞后。', category:'管理缺陷', level:'A', department:'仓储部', reporter:'鹿子', found_date:'2026-04-21', owner:'仓库主任', due_date:'2026-04-28', measure:'补齐全部 MSDS，更新台账，启动月度复核机制', status:'待整改'},
+    {title:'车间局部照度不足', desc:'3 号车间 C 区装配工位照度实测 180 lux，低于 GB 50034 精细作业 300 lux 要求。', category:'环境因素', level:'C', department:'生产二部', location:'3#车间 C 区', reporter:'李明', found_date:'2026-04-15', owner:'设备科', due_date:'2026-04-30', measure:'增补 LED 灯具，复测后确认', status:'整改中'},
+    {title:'叉车司机转弯未鸣笛示警', desc:'入厂物流通道观察到 2 起叉车转弯不鸣笛，存在与行人碰撞风险。', category:'人的不安全行为', level:'B', department:'物流部', reporter:'张敏', found_date:'2026-04-19', owner:'物流主管', due_date:'2026-04-26', measure:'召开叉车司机专项培训，张贴警示标识', status:'待整改'},
+    {title:'楼梯防滑条脱落', desc:'行政楼 A 座 2-3 楼楼梯第 4 级防滑条脱落，雨天有滑倒风险。', category:'物的不安全状态', level:'D', department:'行政部', location:'行政楼 A 座', reporter:'鹿子', found_date:'2026-04-22', owner:'物业', due_date:'2026-04-24', measure:'修补防滑条', status:'已闭环'}
+  ];
+  showLoading('载入中…');
+  for (let i = 0; i < demo.length; i++) {
+    const d = demo[i];
+    const dn = d.found_date.replace(/-/g,'');
+    const r = { id:'HZ'+dn+String(i+1).padStart(3,'0'), ...d, before_count: 0, after_count: 0, created_at: new Date().toISOString() };
+    await dbPut('records', r);
+    records.unshift(r);
+  }
+  hideLoading();
+  renderDash();
+  renderLedger();
+  updateStorageIndicator();
+  toast('已载入 6 条示例数据');
+}
+window.loadDemo = loadDemo;
+$('#btn-demo-quick').addEventListener('click', loadDemo);
+
+// ============ 初始化 ============
+(async () => {
+  updateHeader();
+  setInterval(updateHeader, 60000);
+  try {
+    records = await dbAll('records');
+    records.sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+  } catch(e) { records = []; }
+  renderDash();
+  updateStorageIndicator();
+})();
+</script>
+
+</body>
+</html>
